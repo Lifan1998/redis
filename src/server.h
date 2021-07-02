@@ -617,8 +617,11 @@ typedef struct RedisModuleDigest {
 #define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
 #define OBJ_ENCODING_STREAM 10 /* Encoded as a radix tree of listpacks */
 
+// 访问时间精度，注意这里只有24位
 #define LRU_BITS 24
+// 由于只有24位，无法记录完整的时间，因此只记录了unix time的低24位，24 bits数据要溢出的话需要194天，而缓存的数据更新非常频繁，已经足够了
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
+// 以毫秒为单位的LRU时钟精度，这里1000ms，即1s
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
 
 #define OBJ_SHARED_REFCOUNT INT_MAX     /* Global object never destroyed. */

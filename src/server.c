@@ -1887,7 +1887,8 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
                 server.stat_net_output_bytes);
     }
 
-    /* We have just LRU_BITS bits per object for LRU information.
+
+    /* We have just REDIS_LRU_BITS bits per object for LRU information.
      * So we use an (eventually wrapping) LRU clock.
      *
      * Note that even if the counter wraps it's not a big problem,
@@ -1896,8 +1897,15 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
      * touched for all the time needed to the counter to wrap, which is
      * not likely.
      *
+     * 即使服务器的时间最终比 1.5 年长也无所谓，
+     * 对象系统仍会正常运作，不过一些对象可能会比服务器本身的时钟更年轻。
+     * 不过这要这个对象在 1.5 年内都没有被访问过，才会出现这种现象。
+     *
      * Note that you can change the resolution altering the
-     * LRU_CLOCK_RESOLUTION define. */
+     * REDIS_LRU_CLOCK_RESOLUTION define.
+     *
+     * LRU 时间的精度可以通过修改 REDIS_LRU_CLOCK_RESOLUTION 常量来改变。
+     */
     server.lruclock = getLRUClock();
 
     /* Record the max memory used since the server was started. */
@@ -2398,7 +2406,7 @@ void initServerConfig(void) {
     server.migrate_cached_sockets = dictCreate(&migrateCacheDictType,NULL);
     server.next_client_id = 1; /* Client IDs, start from 1 .*/
     server.loading_process_events_interval_bytes = (1024*1024*2);
-
+    // 初始化 LRU 时间
     server.lruclock = getLRUClock();
     resetServerSaveParams();
 

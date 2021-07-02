@@ -37,7 +37,11 @@
 #endif
 
 /* ===================== Creation and parsing of objects ==================== */
-
+/*
+ * 创建一个新 robj 对象
+ * type 类型
+ * *ptr 值对象地址
+ */
 robj *createObject(int type, void *ptr) {
     robj *o = zmalloc(sizeof(*o));
     o->type = type;
@@ -47,9 +51,11 @@ robj *createObject(int type, void *ptr) {
 
     /* Set the LRU to the current lruclock (minutes resolution), or
      * alternatively the LFU counter. */
+    // 判断是不是 LFU 策略
     if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
         o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
     } else {
+        // 设置 当前访问时间
         o->lru = LRU_CLOCK();
     }
     return o;

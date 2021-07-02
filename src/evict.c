@@ -67,6 +67,9 @@ static struct evictionPoolEntry *EvictionPoolLRU;
 /* Return the LRU clock, based on the clock resolution. This is a time
  * in a reduced-bits format that can be used to set and check the
  * object->lru field of redisObject structures. */
+/* 根据时钟分辨率返回 LRU 时钟。
+ * 这是一个减少位格式的时间，可用于设置和检查
+ * redisObject 结构的 object->lru 字段。 */
 unsigned int getLRUClock(void) {
     return (mstime()/LRU_CLOCK_RESOLUTION) & LRU_CLOCK_MAX;
 }
@@ -75,6 +78,9 @@ unsigned int getLRUClock(void) {
  * If the current resolution is lower than the frequency we refresh the
  * LRU clock (as it should be in production servers) we return the
  * precomputed value, otherwise we need to resort to a system call. */
+/* 该函数用于获取当前的 LRU 时钟。
+ * 如果当前LRU精度低于刷新频率，LRU 时钟（因为它应该在生产服务器中）我们返回预先计算的值（server.lruclock），否则我们需要求助于系统调用（实时计算）。 
+ */
 unsigned int LRU_CLOCK(void) {
     unsigned int lruclock;
     if (1000/server.hz <= LRU_CLOCK_RESOLUTION) {
