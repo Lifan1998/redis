@@ -7,6 +7,9 @@
 阅读顺序参考了下面这篇[文章](https://blog.huangz.me/diary/2014/how-to-read-redis-source-code.html)
 
 ### 已注释文件
+文件名|注释完成度|文件说明
+----|--|--
+redis.h| 5% | --
 
 
 ### 源码阅读心得（可配合源码看）
