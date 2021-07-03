@@ -88,6 +88,7 @@ typedef long long ustime_t; /* microsecond time type. */
 #define C_ERR                   -1
 
 /* Static server configuration */
+// 静态服务器配置 单位：秒
 #define CONFIG_DEFAULT_HZ        10             /* Time interrupt calls/sec. */
 #define CONFIG_MIN_HZ            1
 #define CONFIG_MAX_HZ            500
@@ -1079,7 +1080,9 @@ struct redisServer {
     char *configfile;           /* Absolute config file path, or NULL */
     char *executable;           /* Absolute executable file path. */
     char **exec_argv;           /* Executable argv vector (copy). */
+    /* 根据客户端数量更改 hz 值。 */
     int dynamic_hz;             /* Change hz value depending on # of clients. */
+    /* 配置的 HZ 值。 如果启用了 dynamic-hz，则可能与实际的 'hz' 字段值不同。 */
     int config_hz;              /* Configured HZ value. May be different than
                                    the actual 'hz' field value if dynamic-hz
                                    is enabled. */

@@ -1867,6 +1867,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     server.hz = server.config_hz;
     /* Adapt the server.hz value to the number of configured clients. If we have
      * many clients, we want to call serverCron() with an higher frequency. */
+    /* 根据配置的客户端数量调整 server.hz 值。 如果我们有很多客户端，我们希望以更高的频率调用 serverCron()。 */
     if (server.dynamic_hz) {
         while (listLength(server.clients) / server.hz >
                MAX_CLIENTS_PER_CLOCK_TICK)
@@ -2364,6 +2365,8 @@ void initServerConfig(void) {
     server.runid[CONFIG_RUN_ID_SIZE] = '\0';
     changeReplicationId();
     clearReplicationId2();
+    // 设置默认服务器频率
+    // 尽快初始化它，即使它可能在加载配置后更新。这个值可以在服务器初始化之前使用。
     server.hz = CONFIG_DEFAULT_HZ; /* Initialize it ASAP, even if it may get
                                       updated later after loading the config.
                                       This value may be used before the server
