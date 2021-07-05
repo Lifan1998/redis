@@ -673,15 +673,23 @@ typedef struct clientReplyBlock {
 /* Redis database representation. There are multiple databases identified
  * by integers from 0 (the default database) up to the max configured
  * database. The database number is the 'id' field in the structure. */
+// Redis 数据库。 有多个数据库由从 0（默认数据库）到最大配置数据库的整数标识。 数据库编号是结构中的“id”字段。
 typedef struct redisDb {
-    dict *dict;                 /* The keyspace for this DB */
+    // 数据库键空间，保存着数据库中的所有键值对
+    dict *dict;               /* The keyspace for this DB */
+    // 已经超时的key
     dict *expires;              /* Timeout of keys with a timeout set */
+    // 客户端等待数据的key (BLPOP)
     dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP)*/
+    // 收到 PUSH 被阻塞的key
     dict *ready_keys;           /* Blocked keys that received a PUSH */
     dict *watched_keys;         /* WATCHED keys for MULTI/EXEC CAS */
     int id;                     /* Database ID */
+    // 数据库的键的平均 TTL ，统计信息
     long long avg_ttl;          /* Average TTL, just for stats */
+    // 
     unsigned long expires_cursor; /* Cursor of the active expire cycle. */
+    // 尝试逐一进行碎片整理的键名列表。
     list *defrag_later;         /* List of key names to attempt to defrag one by one, gradually. */
 } redisDb;
 

@@ -558,6 +558,7 @@ int freeMemoryIfNeeded(void) {
                 /* We don't want to make local-db choices when expiring keys,
                  * so to start populate the eviction pool sampling keys from
                  * every DB. */
+                // 我们不想在key到期时进行本地数据库选择，因此开始从每个数据库抽样key填充淘汰池。
                 for (i = 0; i < server.dbnum; i++) {
                     db = server.db+i;
                     dict = (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) ?
@@ -567,22 +568,30 @@ int freeMemoryIfNeeded(void) {
                         total_keys += keys;
                     }
                 }
+                // 如果 total_keys = 0，没有要淘汰的key，break
                 if (!total_keys) break; /* No keys to evict. */
 
                 /* Go backward from best to worst element to evict. */
+                // 从最好到最坏的元素依次淘汰。
+                // 遍历淘汰池
                 for (k = EVPOOL_SIZE-1; k >= 0; k--) {
                     if (pool[k].key == NULL) continue;
+
+                    // 获取最佳dbid
                     bestdbid = pool[k].dbid;
 
+                    
                     if (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) {
+                        // 如果淘汰策略针对所有key，从 redisDb.dict 中取数据，redisDb.dict 指向所有的键值集合
                         de = dictFind(server.db[pool[k].dbid].dict,
                             pool[k].key);
-                    } else {
+                    } else { // 如果淘汰策略不是针对所有key，从 redisDb.expires 中取数据，redisDb.expires 指向已过期键值集合
                         de = dictFind(server.db[pool[k].dbid].expires,
                             pool[k].key);
                     }
 
                     /* Remove the entry from the pool. */
+                    // 从池中删除
                     if (pool[k].key != pool[k].cached)
                         sdsfree(pool[k].key);
                     pool[k].key = NULL;
