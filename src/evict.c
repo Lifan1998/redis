@@ -449,6 +449,15 @@ int getMaxmemoryState(size_t *total, size_t *logical, size_t *tofree, float *lev
  * were over the limit, but the attempt to free memory was successful.
  * Otherwise if we are over the memory limit, but not enough memory
  * was freed to return back under the limit, the function returns C_ERR. */
+/* 周期性地调用这个函数，看看是否有内存可以释放
+  * 根据当前的“maxmemory”设置。 如果我们超过了
+  * 内存限制，函数会尝试释放一些内存返回
+  * 在限制之下。
+  *
+  * 如果我们低于内存限制，或者如果我们
+  * 超出限制，但尝试释放内存成功。
+  * 否则，如果我们超过了内存限制，但内存不足
+  * 被释放返回下限，函数返回C_ERR。 */
 int freeMemoryIfNeeded(void) {
     int keys_freed = 0;
     /* By default replicas should ignore maxmemory
