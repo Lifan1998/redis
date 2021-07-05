@@ -40,18 +40,27 @@
 
 /* To improve the quality of the LRU approximation we take a set of keys
  * that are good candidate for eviction across freeMemoryIfNeeded() calls.
- *
+ * 
+ * 为了提高 LRU 近似算法的质量，我们采用一组键，这些键很适合在 freeMemoryIfNeeded() 调用中进行逐出。
+ * 
  * Entries inside the eviction pool are taken ordered by idle time, putting
  * greater idle times to the right (ascending order).
  *
+ * 淘汰池中的条目按空闲时间排序，将更大的空闲时间放在右侧（升序）。
+ * 
  * When an LFU policy is used instead, a reverse frequency indication is used
  * instead of the idle time, so that we still evict by larger value (larger
  * inverse frequency means to evict keys with the least frequent accesses).
+ * 
+ * 当使用LFU策略时，使用反向频率指示代替空闲时间，因此我们仍然以较大的值驱逐（较大的反向频率意味着驱逐访问频率最低的键）
  *
- * Empty entries have the key pointer set to NULL. */
+ * Empty entries have the key pointer set to NULL. 
+ * 空条目将键指针设置为 NULL
+ */
 #define EVPOOL_SIZE 16
 #define EVPOOL_CACHED_SDS_SIZE 255
 struct evictionPoolEntry {
+    // 对象空闲时间（LFU 的反频）
     unsigned long long idle;    /* Object idle time (inverse frequency for LFU) */
     sds key;                    /* Key name. */
     sds cached;                 /* Cached SDS object for key name. */
@@ -107,21 +116,31 @@ unsigned long long estimateObjectIdleTime(robj *o) {
  * file to limit the max memory used by the server, before processing a
  * command.
  *
+ * 此函数在 maxmemory 选项被打开，并且内存超出限制时调用。
+ * 
  * The goal of the function is to free enough memory to keep Redis under the
  * configured memory limit.
- *
+ * 
+ * 此函数的目的是释放 Redis 的占用内存至 maxmemory 选项设置的最大值之下。
+ * 
  * The function starts calculating how many bytes should be freed to keep
  * Redis under the limit, and enters a loop selecting the best keys to
  * evict accordingly to the configured policy.
+ * 
+ * 函数先计算出需要释放多少字节才能低于 maxmemory 选项设置的最大值，
+ * 然后根据指定的淘汰算法，选出最适合被淘汰的键进行释放。
  *
  * If all the bytes needed to return back under the limit were freed the
  * function returns C_OK, otherwise C_ERR is returned, and the caller
  * should block the execution of commands that will result in more memory
  * used by the server.
+ * 
+ * 如果成功释放了所需数量的内存，那么函数返回 REDIS_OK ，否则函数将返回 REDIS_ERR ，
+ * 并阻止执行新的命令。
  *
  * ------------------------------------------------------------------------
  *
- * LRU approximation algorithm
+ * LRU approximation algorithm LRU 算法
  *
  * Redis uses an approximation of the LRU algorithm that runs in constant
  * memory. Every time there is a key to expire, we sample N keys (with
@@ -142,6 +161,7 @@ unsigned long long estimateObjectIdleTime(robj *o) {
  * evicted in the whole database. */
 
 /* Create a new eviction pool. */
+// 创建一个新的淘汰池
 void evictionPoolAlloc(void) {
     struct evictionPoolEntry *ep;
     int j;
@@ -399,6 +419,29 @@ size_t freeMemoryGetNotCountedMemory(void) {
  *              limit.
  *              (Populated both for C_ERR and C_OK)
  */
+/* 从maxmemory指令的角度获取内存状态：
+ * 如果使用的内存低于 maxmemory 设置，则返回 C_OK。
+ * 否则，如果超过内存限制，函数返回
+ * C_ERR。
+ *
+ * 该函数可能会通过引用返回附加信息，仅当
+ * 指向相应参数的指针不为 NULL。某些字段是
+ * 仅在返回 C_ERR 时填充：
+ *
+ * 'total' 使用的总字节数。
+ *（为 C_ERR 和 C_OK 填充）
+ *
+ * 'logical' 使用的内存量减去从/AOF缓冲区。
+ *（返回 C_ERR 时填充）
+ *
+ * 'tofree' 为了回到内存限制应该释放的内存量
+ * 
+ *（返回 C_ERR 时填充）
+ *
+ * 'level' 这通常范围从 0 到 1，并报告数量
+ * 当前使用的内存。如果我们超过了内存限制可能会 > 1。
+ *（为 C_ERR 和 C_OK 填充）
+ */
 int getMaxmemoryState(size_t *total, size_t *logical, size_t *tofree, float *level) {
     size_t mem_reported, mem_used, mem_tofree;
 
@@ -429,9 +472,11 @@ int getMaxmemoryState(size_t *total, size_t *logical, size_t *tofree, float *lev
     if (return_ok_asap) return C_OK;
 
     /* Check if we are still over the memory limit. */
+    // 如果目前使用的内存大小比设置的 maxmemory 要小，那么无须执行进一步操作
     if (mem_used <= server.maxmemory) return C_OK;
 
     /* Compute how much memory we need to free. */
+    // 计算需要释放多少字节的内存
     mem_tofree = mem_used - server.maxmemory;
 
     if (logical) *logical = mem_used;
@@ -462,8 +507,14 @@ int freeMemoryIfNeeded(void) {
     int keys_freed = 0;
     /* By default replicas should ignore maxmemory
      * and just be masters exact copies. */
+    // 默认情况下，副本应该忽略 maxmemory 而只是主副本。
     if (server.masterhost && server.repl_slave_ignore_maxmemory) return C_OK;
-
+    /*
+     * 
+     * mem_reported 已使用内存
+     * mem_tofree 需要释放的内存
+     * mem_freed 已释放内存
+     */
     size_t mem_reported, mem_tofree, mem_freed;
     mstime_t latency, eviction_latency, lazyfree_latency;
     long long delta;
@@ -473,16 +524,20 @@ int freeMemoryIfNeeded(void) {
     /* When clients are paused the dataset should be static not just from the
      * POV of clients not being able to write, but also from the POV of
      * expires and evictions of keys not being performed. */
+    // 当客户端暂停时，数据集应该是静态的，不仅来自客户端的 POV 无法写入，还有来自POV过期和驱逐key也无法执行。
     if (clientsArePaused()) return C_OK;
+    // 检查内存状态，有没有超出限制，如果有，会计算需要释放的内存和已使用内存
     if (getMaxmemoryState(&mem_reported,NULL,&mem_tofree,NULL) == C_OK)
         return C_OK;
-
+    // 初始化已释放内存的字节数为 0
     mem_freed = 0;
 
     latencyStartMonitor(latency);
     if (server.maxmemory_policy == MAXMEMORY_NO_EVICTION)
         goto cant_free; /* We need to free memory, but policy forbids. */
 
+    // 根据 maxmemory 策略，
+    // 遍历字典，释放内存并记录被释放内存的字节数
     while (mem_freed < mem_tofree) {
         int j, k, i;
         static unsigned int next_db = 0;
@@ -491,7 +546,7 @@ int freeMemoryIfNeeded(void) {
         redisDb *db;
         dict *dict;
         dictEntry *de;
-
+        // 如果是LRU策略或者LFU策略或者VOLATILE_TTL策略
         if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
             server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL)
         {
