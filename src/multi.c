@@ -321,6 +321,7 @@ void unwatchAllKeys(client *c) {
 
 /* "Touch" a key, so that if this key is being WATCHed by some client the
  * next EXEC will fail. */
+// “Touch”一个key，这样如果某个客户端正在监视此键，则下一个 EXEC 将失败。
 void touchWatchedKey(redisDb *db, robj *key) {
     list *clients;
     listIter li;

@@ -554,7 +554,8 @@ long long dbTotalServerKeyCount() {
  *----------------------------------------------------------------------------*/
 
 /* Note that the 'c' argument may be NULL if the key was modified out of
- * a context of a client. */
+ * a context of a client. 
+ * 请注意，如果密钥是在客户端上下文之外修改的，则 'c' 参数可能为 NULL。*/
 void signalModifiedKey(client *c, redisDb *db, robj *key) {
     touchWatchedKey(db,key);
     trackingInvalidateKey(c,key);
@@ -1315,13 +1316,17 @@ long long getExpire(redisDb *db, robj *key) {
 }
 
 /* Propagate expires into slaves and the AOF file.
+ * 处理过期key到从节点和 AOF 文件。
  * When a key expires in the master, a DEL operation for this key is sent
  * to all the slaves and the AOF file if enabled.
+ * 
+ * 当 master 中的 key 过期时，如果启用，则将此 key 的 DEL 操作发送到所有 slaves 和 AOF 文件。
  *
  * This way the key expiry is centralized in one place, and since both
  * AOF and the master->slave link guarantee operation ordering, everything
  * will be consistent even if we allow write operations against expiring
- * keys. */
+ * keys. 
+ * 通过这种方式，key过期集中在一个地方，并且由于 AOF 和主->从链接都保证操作顺序，即使我们允许针对过期key的写操作，一切都将保持一致。*/
 void propagateExpire(redisDb *db, robj *key, int lazy) {
     robj *argv[2];
 

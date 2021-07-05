@@ -899,9 +899,11 @@ typedef struct client {
     int bufpos;
     char buf[PROTO_REPLY_CHUNK_BYTES];
 } client;
-
+// 服务器的保存条件（BGSAVE 自动执行的条件）
 struct saveparam {
+    // 多少秒之内
     time_t seconds;
+    // 发生多少次修改
     int changes;
 };
 
@@ -910,7 +912,7 @@ struct moduleLoadQueueEntry {
     int argc;
     robj **argv;
 };
-
+// 通过复用来减少内存碎片，以及减少操作耗时的共享对象
 struct sharedObjectsStruct {
     robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *pong, *space,
     *colon, *queued, *null[4], *nullarray[4], *emptymap[4], *emptyset[4],
@@ -1481,7 +1483,7 @@ struct redisServer {
     int lazyfree_lazy_expire;
     int lazyfree_lazy_server_del;
     int lazyfree_lazy_user_del;
-    /* Latency monitor */
+    /* Latency monitor  延迟监视器 */
     long long latency_monitor_threshold;
     dict *latency_events;
     /* ACLs */
