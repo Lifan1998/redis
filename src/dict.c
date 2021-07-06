@@ -474,23 +474,40 @@ void dictRelease(dict *d)
     _dictClear(d,&d->ht[1],NULL);
     zfree(d);
 }
-
+/*
+ * 返回字典中包含键 key 的节点
+ *
+ * 找到返回节点，找不到返回 NULL
+ *
+ * T = O(1)
+ */
 dictEntry *dictFind(dict *d, const void *key)
 {
     dictEntry *he;
     uint64_t h, idx, table;
-
+    // 字典（的哈希表）为空
     if (dictSize(d) == 0) return NULL; /* dict is empty */
+    // 如果条件允许的话，进行单步 rehash
     if (dictIsRehashing(d)) _dictRehashStep(d);
+    // 计算键的哈希值
     h = dictHashKey(d, key);
+    // 在字典的哈希表中查找这个键
+    // T = O(1)
+    // dict中的dictht数组，大小为2，rehash时可能需要循环两次
     for (table = 0; table <= 1; table++) {
+        // 计算索引值
         idx = h & d->ht[table].sizemask;
+        // 遍历给定索引上的链表的所有节点，查找 key
         he = d->ht[table].table[idx];
+        // 处理可能存在的Hash碰撞
         while(he) {
             if (key==he->key || dictCompareKeys(d, key, he->key))
                 return he;
             he = he->next;
         }
+        // 如果程序遍历完 0 号哈希表，仍然没找到指定的键的节点
+        // 那么程序会检查字典是否在进行 rehash ，
+        // 然后才决定是直接返回 NULL ，还是继续查找 1 号哈希表
         if (!dictIsRehashing(d)) return NULL;
     }
     return NULL;

@@ -2908,8 +2908,13 @@ void asyncCloseClientOnOutputBufferLimitReached(client *c) {
 
 /* Helper function used by freeMemoryIfNeeded() in order to flush slaves
  * output buffers without returning control to the event loop.
+ * 
+ * freeMemoryIfNeeded() 使用的辅助函数，用于刷新从库输出缓冲区而不将控制权返回给事件循环。
+ * 
  * This is also called by SHUTDOWN for a best-effort attempt to send
- * slaves the latest writes. */
+ * slaves the latest writes. 
+ * 
+ * 这也被 SHUTDOWN 调用，以尽力尝试向从库发送最新的写入。 */
 void flushSlavesOutputBuffers(void) {
     listIter li;
     listNode *ln;

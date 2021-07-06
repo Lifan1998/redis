@@ -675,7 +675,7 @@ typedef struct clientReplyBlock {
  * database. The database number is the 'id' field in the structure. */
 // Redis 数据库。 有多个数据库由从 0（默认数据库）到最大配置数据库的整数标识。 数据库编号是结构中的“id”字段。
 typedef struct redisDb {
-    // 数据库键空间，保存着数据库中的所有键值对
+    /* 数据库键空间，保存着数据库中的所有键值对 */
     dict *dict;               /* The keyspace for this DB */
     // 已经超时的key
     dict *expires;              /* Timeout of keys with a timeout set */
@@ -1143,6 +1143,7 @@ struct redisServer {
     list *clients_to_close;     /* Clients to close asynchronously */
     list *clients_pending_write; /* There is to write or install handler. */
     list *clients_pending_read;  /* Client has pending read socket buffers. */
+    // 从库和哨兵列表
     list *slaves, *monitors;    /* List of slaves and MONITORs */
     client *current_client;     /* Current client executing the command. */
     rax *clients_timeout_table; /* Radix tree for blocked clients timeouts. */

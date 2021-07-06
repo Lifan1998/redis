@@ -659,6 +659,8 @@ int freeMemoryIfNeeded(void) {
             // 获取已使用内存
             delta = (long long) zmalloc_used_memory();
             latencyStartMonitor(eviction_latency);
+            // 是否开启lazyfree机制
+            // lazyfree的原理就是在删除对象时只是进行逻辑删除，然后把对象丢给后台，让后台线程去执行真正的destruct，避免由于对象体积过大而造成阻塞。
             if (server.lazyfree_lazy_eviction)
                 dbAsyncDelete(db,keyobj);
             else
@@ -682,6 +684,7 @@ int freeMemoryIfNeeded(void) {
              * start spending so much time here that is impossible to
              * deliver data to the slaves fast enough, so we force the
              * transmission here inside the loop. */
+            // 当要释放的内存开始足够大时，我们可能会开始在此处花费太多时间，无法足够快地将数据传送到从库，因此我们强制在循环内部进行传输。
             if (slaves) flushSlavesOutputBuffers();
 
             /* Normally our stop condition is the ability to release
@@ -691,9 +694,14 @@ int freeMemoryIfNeeded(void) {
              * memory, since the "mem_freed" amount is computed only
              * across the dbAsyncDelete() call, while the thread can
              * release the memory all the time. */
+            /*
+             * 通常我们的停止条件是能够释放*固定的、预先计算的内存量。 
+             * 然而，当我们在另一个线程中删除对象时，最好不时检查我们是否已经到达我们的目标内存，因为“mem_freed”数量仅在 dbAsyncDelete() 调用中计算，而线程可以无时无刻释放内存
+             */
             if (server.lazyfree_lazy_eviction && !(keys_freed % 16)) {
                 if (getMaxmemoryState(NULL,NULL,NULL,NULL) == C_OK) {
                     /* Let's satisfy our stop condition. */
+                    // 手动满足停止条件
                     mem_freed = mem_tofree;
                 }
             }
