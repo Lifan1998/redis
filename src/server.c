@@ -3558,12 +3558,19 @@ void rejectCommandFormat(client *c, const char *fmt, ...) {
 
 /* If this function gets called we already read a whole
  * command, arguments are in the client argv/argc fields.
+ * 
+ * 如果这个函数被调用，我们已经读取了整个命令，参数在客户端 argv/argc 字段中。
+ * 
  * processCommand() execute the command or prepare the
  * server for a bulk read from the client.
+ *  
+ * processCommand() 执行命令或准备服务器以从客户端进行批量读取。
  *
  * If C_OK is returned the client is still alive and valid and
  * other operations can be performed by the caller. Otherwise
- * if C_ERR is returned the client was destroyed (i.e. after QUIT). */
+ * if C_ERR is returned the client was destroyed (i.e. after QUIT). 
+ * 如果返回 C_OK，则客户端仍处于活动状态且有效，并且调用者可以执行其他操作。 否则，如果返回 C_ERR，则客户端被销毁（即在 QUIT 之后）。*/
+
 int processCommand(client *c) {
     moduleCallCommandFilters(c);
 
@@ -3662,16 +3669,19 @@ int processCommand(client *c) {
         }
     }
 
-    /* Handle the maxmemory directive.
+    /* Handle the maxmemory directive. 处理 maxmemory 指令。
      *
      * Note that we do not want to reclaim memory if we are here re-entering
      * the event loop since there is a busy Lua script running in timeout
      * condition, to avoid mixing the propagation of scripts with the
-     * propagation of DELs due to eviction. */
+     * propagation of DELs due to eviction. 
+     * 请注意，如果我们在这里重新进入事件循环，我们不想回收内存，因为有一个繁忙的 Lua 脚本在超时条件下运行，以避免由于驱逐而将脚本的传播与 DEL 的传播混合在一起。*/
+    // 如果配置了 server.maxmemory 并且 lua脚本没有在超时条件下运行
     if (server.maxmemory && !server.lua_timedout) {
         int out_of_memory = freeMemoryIfNeededAndSafe() == C_ERR;
         /* freeMemoryIfNeeded may flush slave output buffers. This may result
-         * into a slave, that may be the active client, to be freed. */
+         * into a slave, that may be the active client, to be freed. 
+         * freeMemoryIfNeeded 可能会刷新从库输出缓冲区。 这可能会导致从库设备（可能是活动客户端）被释放。*/
         if (server.current_client == NULL) return C_ERR;
 
         int reject_cmd_on_oom = is_denyoom_command;

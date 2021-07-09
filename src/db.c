@@ -1320,7 +1320,7 @@ long long getExpire(redisDb *db, robj *key) {
  * When a key expires in the master, a DEL operation for this key is sent
  * to all the slaves and the AOF file if enabled.
  * 
- * 当 master 中的 key 过期时，如果启用，则将此 key 的 DEL 操作发送到所有 slaves 和 AOF 文件。
+ * 当 master 中的 key 过期时，则将此 key 的 DEL 操作发送到所有 slaves 和 AOF 文件（如果启用）。
  *
  * This way the key expiry is centralized in one place, and since both
  * AOF and the master->slave link guarantee operation ordering, everything

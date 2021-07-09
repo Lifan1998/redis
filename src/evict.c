@@ -178,15 +178,22 @@ void evictionPoolAlloc(void) {
 
 /* This is an helper function for freeMemoryIfNeeded(), it is used in order
  * to populate the evictionPool with a few entries every time we want to
- * expire a key. Keys with idle time smaller than one of the current
+ * expire a key.
+ *  
+ * 这是 freeMemoryIfNeeded() 的辅助函数，用于在每次我们想要key过期时用一些条目填充 evictionPool。
+ * 
+ * Keys with idle time smaller than one of the current
  * keys are added. Keys are always added if there are free entries.
- *
+ * 
+ * 添加空闲时间小于当前所有key空闲时间的key。 如果池是空的则key会一直被添加
+ * 
  * We insert keys on place in ascending order, so keys with the smaller
  * idle time are on the left, and keys with the higher idle time on the
- * right. */
-
+ * right. 
+ * 我们按升序将键插入到位，因此空闲时间较小的键在左侧，而空闲时间较长的键在右侧。*/
 void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evictionPoolEntry *pool) {
     int j, k, count;
+    // 初始化抽样集合，大小为 server.maxmemory_samples
     dictEntry *samples[server.maxmemory_samples];
 
     count = dictGetSomeKeys(sampledict,samples,server.maxmemory_samples);
@@ -494,20 +501,18 @@ int getMaxmemoryState(size_t *total, size_t *logical, size_t *tofree, float *lev
  * were over the limit, but the attempt to free memory was successful.
  * Otherwise if we are over the memory limit, but not enough memory
  * was freed to return back under the limit, the function returns C_ERR. */
-/* 周期性地调用这个函数，看看是否有内存可以释放
-  * 根据当前的“maxmemory”设置。 如果我们超过了
-  * 内存限制，函数会尝试释放一些内存返回
-  * 在限制之下。
-  *
-  * 如果我们低于内存限制，或者如果我们
-  * 超出限制，但尝试释放内存成功。
-  * 否则，如果我们超过了内存限制，但内存不足
-  * 被释放返回下限，函数返回C_ERR。 */
+/* 
+ * 根据当前的“maxmemory”设置，定期调用此函数以查看是否有可用内存。 如果我们超过内存限制，该函数将尝试释放一些内存以返回低于限制。
+ *
+ * 如果我们低于内存限制或超过限制但尝试释放内存成功,该函数将返回 C_OK。
+ * 否则，如果我们超过了内存限制，但没有足够的内存被释放以返回低于限制，则该函数返回 C_ERR。
+ */
 int freeMemoryIfNeeded(void) {
+    // 已释放key的数量
     int keys_freed = 0;
     /* By default replicas should ignore maxmemory
      * and just be masters exact copies. */
-    // 默认情况下，副本应该忽略 maxmemory 而只是主副本。
+    // 默认情况下，从节点应该忽略maxmemory指令，仅仅做从节点该做的事情就好
     if (server.masterhost && server.repl_slave_ignore_maxmemory) return C_OK;
     /*
      * 
@@ -541,15 +546,21 @@ int freeMemoryIfNeeded(void) {
     while (mem_freed < mem_tofree) {
         int j, k, i;
         static unsigned int next_db = 0;
+        // 最佳淘汰key
         sds bestkey = NULL;
+        // key所属db
         int bestdbid;
+        // Redis数据库
         redisDb *db;
+        // 字典
         dict *dict;
+        // 哈希表节点
         dictEntry *de;
-        // 如果是LRU策略或者LFU策略或者VOLATILE_TTL策略
+        // LRU策略或者LFU策略或者VOLATILE_TTL策略
         if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
             server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL)
         {
+            // 淘汰池
             struct evictionPoolEntry *pool = EvictionPoolLRU;
 
             while(bestkey == NULL) {
@@ -558,26 +569,32 @@ int freeMemoryIfNeeded(void) {
                 /* We don't want to make local-db choices when expiring keys,
                  * so to start populate the eviction pool sampling keys from
                  * every DB. */
-                // 我们不想在key到期时进行本地数据库选择，因此开始从每个数据库抽样key填充淘汰池。
+                // 从每个数据库抽样key填充淘汰池
                 for (i = 0; i < server.dbnum; i++) {
                     db = server.db+i;
+                    // db->dict: 数据库所有key集合
+                    // db->expires: 数据中设置过期时间的key集合
+                    // 判断淘汰策略是否是针对所有键的
                     dict = (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) ?
                             db->dict : db->expires;
+                    // 计算字典元素数量，不为0才可以挑选key
                     if ((keys = dictSize(dict)) != 0) {
+                        // 填充淘汰池，四个参数分别为 dbid，候选集合，备选集合，淘汰池
+                        // 填充完的淘汰池内部是有序的，按空闲时间升序
                         evictionPoolPopulate(i, dict, db->dict, pool);
+                        // 已遍历检测过的key数量
                         total_keys += keys;
                     }
                 }
-                // 如果 total_keys = 0，没有要淘汰的key，break
+                // 如果 total_keys = 0，没有要淘汰的key（redis没有key或者没有设置过期时间的key），break
                 if (!total_keys) break; /* No keys to evict. */
 
                 /* Go backward from best to worst element to evict. */
-                // 从最好到最坏的元素依次淘汰。
-                // 遍历淘汰池
+                // 遍历淘汰池，从淘汰池末尾（空闲时间最长）开始向前迭代
                 for (k = EVPOOL_SIZE-1; k >= 0; k--) {
                     if (pool[k].key == NULL) continue;
 
-                    // 获取最佳dbid
+                    // 获取当前key所属的dbid
                     bestdbid = pool[k].dbid;
 
                     
@@ -591,7 +608,7 @@ int freeMemoryIfNeeded(void) {
                     }
 
                     /* Remove the entry from the pool. */
-                    // 从池中删除
+                    // 从池中删除这个key，不管这个key还在不在
                     if (pool[k].key != pool[k].cached)
                         sdsfree(pool[k].key);
                     pool[k].key = NULL;
@@ -599,8 +616,10 @@ int freeMemoryIfNeeded(void) {
 
                     /* If the key exists, is our pick. Otherwise it is
                      * a ghost and we need to try the next element. */
-                    // 如果key存在，就是我们的选择。否则尝试下一个元素。
+                    // 如果这个节点存在，就跳出这个循环，否则尝试下一个元素。
+                    // 这个节点可能已经不存在了，比如到了过期时间被删除了
                     if (de) {
+                        // de是key所在哈希表节点，bestkey是 key 名
                         bestkey = dictGetKey(de);
                         break;
                     } else {
@@ -636,6 +655,8 @@ int freeMemoryIfNeeded(void) {
         if (bestkey) {
             db = server.db+bestdbid;
             robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
+            // 处理过期key到从节点和 AOF 文件
+            // 当 master 中的 key 过期时，则将此 key 的 DEL 操作发送到所有 slaves 和 AOF 文件（如果启用）。
             propagateExpire(db,keyobj,server.lazyfree_lazy_eviction);
             /* We compute the amount of memory freed by db*Delete() alone.
              *
@@ -714,14 +735,17 @@ int freeMemoryIfNeeded(void) {
 cant_free:
     /* We are here if we are not able to reclaim memory. There is only one
      * last thing we can try: check if the lazyfree thread has jobs in queue
-     * and wait... */
+     * and wait... 
+     * 如果我们无法收回内存，我们只能尝试最后一件事：检查lazyfree线程是否有队列中的作业并等待...*/
     if (result != C_OK) {
         latencyStartMonitor(lazyfree_latency);
         while(bioPendingJobsOfType(BIO_LAZY_FREE)) {
+            // 检查内存是否达到阈值
             if (getMaxmemoryState(NULL,NULL,NULL,NULL) == C_OK) {
                 result = C_OK;
                 break;
             }
+            // 每秒一次
             usleep(1000);
         }
         latencyEndMonitor(lazyfree_latency);
@@ -737,6 +761,10 @@ cant_free:
  *
  * - There must be no script in timeout condition.
  * - Nor we are loading data right now.
+ * 
+ * 这是 freeMemoryIfNeeded() 的包装器，只有在现在有条件安全地执行时才真正调用该函数：
+ * - 超时条件下不能有脚本。
+ * - 现在没有加载数据。
  *
  */
 int freeMemoryIfNeededAndSafe(void) {

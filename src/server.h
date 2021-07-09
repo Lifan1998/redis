@@ -677,7 +677,7 @@ typedef struct clientReplyBlock {
 typedef struct redisDb {
     /* 数据库键空间，保存着数据库中的所有键值对 */
     dict *dict;               /* The keyspace for this DB */
-    // 已经超时的key
+    // 设置超时时间的key集合
     dict *expires;              /* Timeout of keys with a timeout set */
     // 客户端等待数据的key (BLPOP)
     dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP)*/
@@ -1390,8 +1390,11 @@ struct redisServer {
     int get_ack_from_slaves;            /* If true we send REPLCONF GETACK. */
     /* Limits */
     unsigned int maxclients;            /* Max number of simultaneous clients */
+    // 可使用的最大内存字节数
     unsigned long long maxmemory;   /* Max number of memory bytes to use */
+    // key 淘汰策略
     int maxmemory_policy;           /* Policy for key eviction */
+    // 随机抽样精度
     int maxmemory_samples;          /* Precision of random sampling */
     int lfu_log_factor;             /* LFU logarithmic counter factor. */
     int lfu_decay_time;             /* LFU counter decay factor. */
