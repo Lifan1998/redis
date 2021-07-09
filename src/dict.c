@@ -667,6 +667,8 @@ dictEntry *dictGetRandomKey(dict *d)
 
 /* This function samples the dictionary to return a few keys from random
  * locations.
+ * 
+ * 此函数对字典进行采样以从随机位置返回一些键。
  *
  * It does not guarantee to return all the keys specified in 'count', nor
  * it does guarantee to return non-duplicated elements, however it will make

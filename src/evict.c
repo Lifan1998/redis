@@ -195,9 +195,10 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
     int j, k, count;
     // 初始化抽样集合，大小为 server.maxmemory_samples
     dictEntry *samples[server.maxmemory_samples];
-
+    // 此函数对字典进行采样以从随机位置返回一些键
     count = dictGetSomeKeys(sampledict,samples,server.maxmemory_samples);
     for (j = 0; j < count; j++) {
+        // 这被称为空闲只是因为代码最初处理 LRU，但实际上只是一个分数，其中更高的分数意味着更好的候选者。
         unsigned long long idle;
         sds key;
         robj *o;
@@ -208,7 +209,8 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
 
         /* If the dictionary we are sampling from is not the main
          * dictionary (but the expires one) we need to lookup the key
-         * again in the key dictionary to obtain the value object. */
+         * again in the key dictionary to obtain the value object. 
+         * 如果我们采样的字典不是主字典（而是过期的字典），我们需要在键字典中再次查找键以获得值对象。*/
         if (server.maxmemory_policy != MAXMEMORY_VOLATILE_TTL) {
             if (sampledict != keydict) de = dictFind(keydict, key);
             o = dictGetVal(de);
@@ -216,41 +218,63 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
 
         /* Calculate the idle time according to the policy. This is called
          * idle just because the code initially handled LRU, but is in fact
-         * just a score where an higher score means better candidate. */
+         * just a score where an higher score means better candidate. 
+         * 根据策略计算空闲时间。 这被称为空闲只是因为代码最初处理 LRU，但实际上只是一个分数，其中更高的分数意味着更好的候选者。*/
         if (server.maxmemory_policy & MAXMEMORY_FLAG_LRU) {
             idle = estimateObjectIdleTime(o);
         } else if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
             /* When we use an LRU policy, we sort the keys by idle time
              * so that we expire keys starting from greater idle time.
+             * 
+             * 当我们使用 LRU 策略时，我们按空闲时间对键进行排序，以便我们从更长的空闲时间开始使键过期。
+             * 
              * However when the policy is an LFU one, we have a frequency
              * estimation, and we want to evict keys with lower frequency
-             * first. So inside the pool we put objects using the inverted
+             * first. 
+             * 
+             * 然而，当策略是 LFU 时，我们有一个频率估计，我们想先驱逐频率较低的键。
+             * 
+             * So inside the pool we put objects using the inverted
              * frequency subtracting the actual frequency to the maximum
-             * frequency of 255. */
+             * frequency of 255. 
+             * 
+             * 因此，在池中，我们使用倒频减去实际频率到最大频率 255 来放置对象。
+             * 
+             */
             idle = 255-LFUDecrAndReturn(o);
         } else if (server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL) {
             /* In this case the sooner the expire the better. */
+            // 在这种情况下，越早过期越好。
             idle = ULLONG_MAX - (long)dictGetVal(de);
         } else {
             serverPanic("Unknown eviction policy in evictionPoolPopulate()");
         }
 
-        /* Insert the element inside the pool.
+        /* Insert the element inside the pool. 将元素插入池中
          * First, find the first empty bucket or the first populated
-         * bucket that has an idle time smaller than our idle time. */
+         * bucket that has an idle time smaller than our idle time. 
+         * 首先，找到空闲时间小于我们空闲时间的第一个空桶或第一个填充的桶。*/
         k = 0;
         while (k < EVPOOL_SIZE &&
                pool[k].key &&
                pool[k].idle < idle) k++;
         if (k == 0 && pool[EVPOOL_SIZE-1].key != NULL) {
             /* Can't insert if the element is < the worst element we have
-             * and there are no empty buckets. */
+             * and there are no empty buckets. 
+             * 
+             * 如果元素小于我们拥有的最差元素并且没有空桶，则无法插入。
+             * */
             continue;
         } else if (k < EVPOOL_SIZE && pool[k].key == NULL) {
-            /* Inserting into empty position. No setup needed before insert. */
+            /* Inserting into empty position. No setup needed before insert. 
+             * 插入空位。 插入前无需设置。
+             */
         } else {
             /* Inserting in the middle. Now k points to the first element
-             * greater than the element to insert.  */
+             * greater than the element to insert.  
+             *
+             * 插入中间。 现在 k 指向比要插入的元素大的第一个元素。
+             */
             if (pool[EVPOOL_SIZE-1].key == NULL) {
                 /* Free space on the right? Insert at k shifting
                  * all the elements from k to end to the right. */
