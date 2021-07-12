@@ -60,9 +60,11 @@
 #define EVPOOL_SIZE 16
 #define EVPOOL_CACHED_SDS_SIZE 255
 struct evictionPoolEntry {
-    // 对象空闲时间（LFU 的反频）
+    // 对象空闲时间
+    // 这被称为空闲只是因为代码最初处理 LRU，但实际上只是一个分数，其中更高的分数意味着更好的候选者。
     unsigned long long idle;    /* Object idle time (inverse frequency for LFU) */
     sds key;                    /* Key name. */
+    // 用来存储一个sds对象留待复用，注意我们要复用的是sds的内存空间，只需关注cached的长度（决定是否可以复用），无需关注他的内容
     sds cached;                 /* Cached SDS object for key name. */
     int dbid;                   /* Key DB number. */
 };
@@ -188,12 +190,12 @@ void evictionPoolAlloc(void) {
  * Keys with idle time smaller than one of the current
  * keys are added. Keys are always added if there are free entries.
  * 
- * 添加空闲时间小于当前所有key空闲时间的key。 如果池是空的则key会一直被添加
+ * 添加空闲时间小于当前所有key空闲时间的key，如果池是空的则key会一直被添加
  * 
  * We insert keys on place in ascending order, so keys with the smaller
  * idle time are on the left, and keys with the higher idle time on the
  * right. 
- * 我们按升序将键插入到位，因此空闲时间较小的键在左侧，而空闲时间较长的键在右侧。*/
+ * 我们按升序将键依次插入，因此空闲时间较小的键在左侧，而空闲时间较长的键在右侧。*/
 void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evictionPoolEntry *pool) {
     int j, k, count;
     // 初始化抽样集合，大小为 server.maxmemory_samples
@@ -284,20 +286,21 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
             /* Inserting in the middle. Now k points to the first element
              * greater than the element to insert.  
              *
-             * 插入中间。 现在 k 指向比要插入的元素空闲时间大的第一个元素。
+             * 插入中间，现在 k 指向比要插入的元素空闲时间大的第一个元素。
              */
             if (pool[EVPOOL_SIZE-1].key == NULL) {
                 /* Free space on the right? Insert at k shifting
                  * all the elements from k to end to the right. */
                 /*
-                 * 右边的空闲空间？ 在 k 处插入将所有元素从 k 移到末尾向右移动。
+                 * 数组末尾有空桶，将所有元素从 k 向右移动到末尾。
                  */
-
                 /* Save SDS before overwriting. */
                 /* 覆盖前保存 SDS */
                 sds cached = pool[EVPOOL_SIZE-1].cached;
+                // 注意这里不设置 pool[k], 只是给 pool[k] 腾位置
                 memmove(pool+k+1,pool+k,
                     sizeof(pool[0])*(EVPOOL_SIZE-k-1));
+                // 转移 cached (sds对象)
                 pool[k].cached = cached;
             } else {
                 /* No free space on right? Insert at k-1 */
@@ -308,7 +311,7 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
                 /*
                  * 将k（包含）左侧的所有元素向左移动，因此我们丢弃空闲时间较小的元素。
                  */
-                sds cached = pool[0].cached; /* Save SDS before overwriting. */
+                sds cached = pool[0].cached;
                 if (pool[0].key != pool[0].cached) sdsfree(pool[0].key);
                 memmove(pool,pool+1,sizeof(pool[0])*k);
                 pool[k].cached = cached;
@@ -321,16 +324,32 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
          * premature optimization bla bla bla. */
         /*
          * 尝试重用在池条目中分配的缓存 SDS 字符串，因为分配和释放此对象的成本很高
+         * 注意真正要复用的sds内存空间，避免重新申请内存，而不是他的值
          */
         int klen = sdslen(key);
+        // 判断字符串长度来决定是否复用sds
         if (klen > EVPOOL_CACHED_SDS_SIZE) {
+            // 复制一个新的 sds 字符串并赋值
             pool[k].key = sdsdup(key);
         } else {
+            /*
+             * 内存拷贝函数，从数据源拷贝num个字节的数据到目标数组
+             * 
+             * destination：指向目标数组的指针 
+             * source：指向数据源的指针 
+             * num：要拷贝的字节数
+             *
+             */
+            // 复用sds对象
             memcpy(pool[k].cached,key,klen+1);
+            // 重新设置sds长度
             sdssetlen(pool[k].cached,klen);
+            // 真正设置key
             pool[k].key = pool[k].cached;
         }
+        // 设置空闲时间
         pool[k].idle = idle;
+        // 设置key所在db
         pool[k].dbid = dbid;
     }
 }

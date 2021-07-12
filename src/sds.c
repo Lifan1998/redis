@@ -75,6 +75,9 @@ static inline char sdsReqType(size_t string_size) {
 
 /* Create a new sds string with the content specified by the 'init' pointer
  * and 'initlen'.
+ * 
+ * 使用'init'指针和'initlen'指定的内容创建一个新的sds字符串。
+ * 
  * If NULL is used for 'init' the string is initialized with zero bytes.
  * If SDS_NOINIT is used, the buffer is left uninitialized;
  *
@@ -158,6 +161,7 @@ sds sdsnew(const char *init) {
 }
 
 /* Duplicate an sds string. */
+/* 复制一个 sds 字符串 */
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
 }
