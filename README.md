@@ -11,12 +11,13 @@
 ----|--|--
 redis.h| 20% | 
 db.c | 10% | 
-evict.c | 60% | 缓存淘汰策略
-server.h | 10% | 
+evict.c | 100% | 缓存淘汰策略
+server.h | 50% | 
 dict.h dict.c | 80% | 哈希表实现
 
 ### 源码阅读心得（可配合源码看）
 
+[LRU工程实现源码（一）：Redis 内存淘汰策略](https://www.cnblogs.com/lifan1998/p/15001630.html)
 
 ### Redis相关知识笔记
 
