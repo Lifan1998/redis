@@ -101,7 +101,10 @@ unsigned int LRU_CLOCK(void) {
 }
 
 /* Given an object returns the min number of milliseconds the object was never
- * requested, using an approximated LRU algorithm. */
+ * requested, using an approximated LRU algorithm. 
+ *
+ * 给定一个对象，使用近似的 LRU 算法返回未请求过该对象的最小毫秒数。
+ */
 unsigned long long estimateObjectIdleTime(robj *o) {
     unsigned long long lruclock = LRU_CLOCK();
     if (lruclock >= o->lru) {
@@ -200,8 +203,11 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
     for (j = 0; j < count; j++) {
         // 这被称为空闲只是因为代码最初处理 LRU，但实际上只是一个分数，其中更高的分数意味着更好的候选者。
         unsigned long long idle;
+        // key
         sds key;
+        // 值对象
         robj *o;
+        // 哈希表节点
         dictEntry *de;
 
         de = samples[j];
@@ -221,6 +227,7 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
          * just a score where an higher score means better candidate. 
          * 根据策略计算空闲时间。 这被称为空闲只是因为代码最初处理 LRU，但实际上只是一个分数，其中更高的分数意味着更好的候选者。*/
         if (server.maxmemory_policy & MAXMEMORY_FLAG_LRU) {
+            // 给定一个对象，使用近似的 LRU 算法返回未请求过该对象的最小毫秒数
             idle = estimateObjectIdleTime(o);
         } else if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
             /* When we use an LRU policy, we sort the keys by idle time
@@ -252,9 +259,9 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
 
         /* Insert the element inside the pool. 将元素插入池中
          * First, find the first empty bucket or the first populated
-         * bucket that has an idle time smaller than our idle time. 
-         * 首先，找到空闲时间小于我们空闲时间的第一个空桶或第一个填充的桶。*/
+         * bucket that has an idle time smaller than our idle time. */
         k = 0;
+        // 遍历淘汰池，从左边开始，找到第一个空桶或者第一个空闲时间大于等于待选元素的桶，k是该元素的坐标
         while (k < EVPOOL_SIZE &&
                pool[k].key &&
                pool[k].idle < idle) k++;
@@ -263,32 +270,44 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
              * and there are no empty buckets. 
              * 
              * 如果元素小于我们拥有的最差元素并且没有空桶，则无法插入。
+             * 
+             * key == 0 说明上面的while循环一次也没有进入
+             * 要么第一个元素就是空的，要么所有已有元素的空闲时间都大于等于待插入元素的空闲时间（待插入元素比已有所有元素都优质）
+             * 又因为数组最后一个key不为空，因为是从左边开始插入的，所以排除了第一个元素是空的
              * */
             continue;
         } else if (k < EVPOOL_SIZE && pool[k].key == NULL) {
             /* Inserting into empty position. No setup needed before insert. 
-             * 插入空位。 插入前无需设置。
+             * 插入空桶，插入前无需设置
              */
         } else {
             /* Inserting in the middle. Now k points to the first element
              * greater than the element to insert.  
              *
-             * 插入中间。 现在 k 指向比要插入的元素大的第一个元素。
+             * 插入中间。 现在 k 指向比要插入的元素空闲时间大的第一个元素。
              */
             if (pool[EVPOOL_SIZE-1].key == NULL) {
                 /* Free space on the right? Insert at k shifting
                  * all the elements from k to end to the right. */
+                /*
+                 * 右边的空闲空间？ 在 k 处插入将所有元素从 k 移到末尾向右移动。
+                 */
 
                 /* Save SDS before overwriting. */
+                /* 覆盖前保存 SDS */
                 sds cached = pool[EVPOOL_SIZE-1].cached;
                 memmove(pool+k+1,pool+k,
                     sizeof(pool[0])*(EVPOOL_SIZE-k-1));
                 pool[k].cached = cached;
             } else {
                 /* No free space on right? Insert at k-1 */
+                /* 右边没有可用空间？ 在 k-1 处插入 */
                 k--;
                 /* Shift all elements on the left of k (included) to the
                  * left, so we discard the element with smaller idle time. */
+                /*
+                 * 将k（包含）左侧的所有元素向左移动，因此我们丢弃空闲时间较小的元素。
+                 */
                 sds cached = pool[0].cached; /* Save SDS before overwriting. */
                 if (pool[0].key != pool[0].cached) sdsfree(pool[0].key);
                 memmove(pool,pool+1,sizeof(pool[0])*k);
@@ -300,6 +319,9 @@ void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evic
          * because allocating and deallocating this object is costly
          * (according to the profiler, not my fantasy. Remember:
          * premature optimization bla bla bla. */
+        /*
+         * 尝试重用在池条目中分配的缓存 SDS 字符串，因为分配和释放此对象的成本很高
+         */
         int klen = sdslen(key);
         if (klen > EVPOOL_CACHED_SDS_SIZE) {
             pool[k].key = sdsdup(key);
